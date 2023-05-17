@@ -56,12 +56,20 @@ class SensorModel:
                 self.coefficients[4 + i] = rospy.get_param('~k_sigma_%i' % i, 0.0)
 
         # Initialize camera params from params or wait for unreal_ros_client to publish them
+        # TODO: (michbaum) Check what params are gotten here -> the right camera params 
         if not rospy.has_param(camera_params_ns+'width'):
             rospy.loginfo("Waiting for unreal camera params at '%s' ...", camera_params_ns)
             while not rospy.has_param(camera_params_ns+'/width'):
                 rospy.sleep(0.1)
+        
+        
+
         self.camera_params = [rospy.get_param(camera_params_ns+'/width'), rospy.get_param(camera_params_ns+'/height'),
                               rospy.get_param(camera_params_ns+'/focal_length')]
+
+        # DEBUGGING
+        # pdb.set_trace()
+        # rospy.loginfo(self.camera_params)
 
         # Initialize node
         self.pub = rospy.Publisher("~ue_sensor_out", PointCloud2, queue_size=10)
@@ -81,7 +89,8 @@ class SensorModel:
         img_color = np.asarray(PIL.Image.open(io.BytesIO(ros_data.color_data)))
         # img_depth = np.asarray(PIL.Image.open(io.BytesIO(ros_data.depth_data)))
         # img_depth = np.array(ros_data.depth_data).reshape((480,640))*64 -> scaling issues
-        img_depth = np.array(ros_data.depth_data).reshape((480,640)) / 64.0 # TODO: I think this is the correct scale, at least it looks right
+        # img_depth = np.array(ros_data.depth_data).reshape((480,640))/64 -> probably the right scale?
+        img_depth = np.array(ros_data.depth_data).reshape((480,640)) / 100.0 # TODO: (michbaum) I think this is the correct scale, at least it looks right
         # DEBUGGING
         # plt.imshow(img_depth)
         # plt.show()
@@ -159,10 +168,13 @@ class SensorModel:
         f = self.camera_params[2]
         cols, rows = np.meshgrid(np.linspace(0, width - 1, num=width), np.linspace(0, height - 1, num=height))
 
+        # DEBUGGING
+        # pdb.set_trace()
+
         # Process depth image from ray length to camera axis depth
         distance = ((rows - center_y) ** 2 + (cols - center_x) ** 2) ** 0.5
         # points_z = img_depth / (1 + (distance / f) ** 2) ** 0.5
-        # TODO: Testing if depth images are already in camera axis depth
+        # TODO: (michbaum) Testing if depth images are already in camera axis depth -> They indeed are
         points_z = img_depth
 
         # Create x and y position
