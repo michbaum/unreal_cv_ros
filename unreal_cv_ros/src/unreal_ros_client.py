@@ -170,6 +170,8 @@ class UnrealRosClient:
         # Generate images
         if self.previous_odom_msg is not None:
             # This is not the initialization step
+            # TODO: (michbaum) They actually stagger the image generation and the pose setting, such that unreal has enough time to
+            # render the images. If we try to decouple pose setting and image retrieval, this could be a potential problem.
             self.publish_images(self.previous_odom_msg.header.stamp)
 
         if self.publish_tf:

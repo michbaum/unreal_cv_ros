@@ -56,7 +56,6 @@ class SensorModel:
                 self.coefficients[4 + i] = rospy.get_param('~k_sigma_%i' % i, 0.0)
 
         # Initialize camera params from params or wait for unreal_ros_client to publish them
-        # TODO: (michbaum) Check what params are gotten here -> the right camera params 
         if not rospy.has_param(camera_params_ns+'width'):
             rospy.loginfo("Waiting for unreal camera params at '%s' ...", camera_params_ns)
             while not rospy.has_param(camera_params_ns+'/width'):
