@@ -26,9 +26,11 @@
           <contact_surface_layer>0.001</contact_surface_layer>
         </constraints>
       </ode>
+      <!-- TODO: (michbaum) max_step_size * real_time_update_rate = targeted real_time_factor (which can't just be set apparently) -->
       <max_step_size>0.002</max_step_size>
-      <real_time_factor>1.0</real_time_factor>
-      <real_time_update_rate>500</real_time_update_rate>
+      <real_time_factor>0.1</real_time_factor>
+      <!-- TODO: (michbaum) Set back to 500 for real_time_factor of 1 -->
+      <real_time_update_rate>50</real_time_update_rate>
       <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
     </physics>
   </world>

@@ -85,11 +85,15 @@ class SensorModel:
     def callback(self, ros_data):
         ''' Produce simulated sensor outputs from raw binary data '''
         # Read out images
+        now = rospy.Time.now()
         img_color = np.asarray(PIL.Image.open(io.BytesIO(ros_data.color_data)))
+        rospy.loginfo("Unpacking color data takes %f s", (rospy.Time.now() - now).to_sec())
         # img_depth = np.asarray(PIL.Image.open(io.BytesIO(ros_data.depth_data)))
         # img_depth = np.array(ros_data.depth_data).reshape((480,640))*64 -> scaling issues
         # img_depth = np.array(ros_data.depth_data).reshape((480,640))/64 -> probably the right scale?
+        now = rospy.Time.now()
         img_depth = np.array(ros_data.depth_data).reshape((480,640)) / 100.0 # TODO: (michbaum) I think this is the correct scale, at least it looks right
+        rospy.loginfo("Unpacking depth data takes %f s", (rospy.Time.now() - now).to_sec())
         # DEBUGGING
         # plt.imshow(img_depth)
         # plt.show()
@@ -101,6 +105,7 @@ class SensorModel:
         #pdb.set_trace()
         #np.save('~/depth.npy')
         
+        now = rospy.Time.now()
         mask_depth = img_depth.reshape(-1)
 
         # Build 3D point cloud from depth
@@ -125,7 +130,10 @@ class SensorModel:
         elif self.model == 'gaussian_depth_noise':
             z = self.process_gaussian_depth_noise(z)
 
+        rospy.loginfo("Processing sensor data takes %f s", (rospy.Time.now() - now).to_sec())
+
         # Publish pointcloud
+        now = rospy.Time.now()
         data = np.transpose(np.vstack((x, y, z, rgb)))
         msg = PointCloud2()
         msg.header.stamp = ros_data.header.stamp
@@ -144,6 +152,7 @@ class SensorModel:
         #msg.data = np.float32(data).tostring()
         msg.data = data.astype(np.float32).tobytes()
         self.pub.publish(msg)
+        rospy.loginfo("Publishing pointcloud takes %f s", (rospy.Time.now() - now).to_sec())
 
         # If requested, also publish the image
         if self.publish_color_images:
@@ -152,10 +161,12 @@ class SensorModel:
             img_msg.header.frame_id = 'camera'
             self.color_img_pub.publish(img_msg)
         if self.publish_gray_images:
+            now = rospy.Time.now()
             img_msg = self.cv_bridge.cv2_to_imgmsg(cv2.cvtColor(img_color[:, :, 0:3], cv2.COLOR_RGB2GRAY), "mono8")
             img_msg.header.stamp = ros_data.header.stamp
             img_msg.header.frame_id = 'camera'
             self.gray_img_pub.publish(img_msg)
+            rospy.loginfo("Converting to grayscale and publishing takes %f s", (rospy.Time.now() - now).to_sec())
 
     def depth_to_3d(self, img_depth):
         ''' Create point cloud from depth image and camera params. Returns a single array for x, y and z coords '''

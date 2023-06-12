@@ -20,6 +20,9 @@ import math
 import numpy as np
 import time
 
+# Profiling
+import cProfile
+
 # DEBUGGING
 import pdb
 import matplotlib.pyplot as plt
@@ -100,8 +103,10 @@ class UnrealRosClient:
 
         elif self.mode == 'standard':
             self.sub = rospy.Subscriber("odometry", Odometry, self.odom_callback, queue_size=self.queue_size,
-                                        buff_size=(2 ** 24) * self.queue_size)
+                                         buff_size=(2 ** 24) * self.queue_size)
             # The buffersize needs to be large enough to fit all messages, otherwise strange things happen
+            # TODO: (michbaum) Actually unsure how this works, since the queue_size is set to 1, such a huge
+            #       buffer should achieve nothing -> but it does, a smaller buffer does not work
             self.previous_odom_msg = None  # Previously processed Odom message
             self.collision_tolerance = rospy.get_param('~collision_tol', 10)  # Distance threshold in UE units
 
@@ -159,6 +164,9 @@ class UnrealRosClient:
 
     def odom_callback(self, ros_data):
         ''' Produce images for given odometry '''
+        # Profiling
+        # pr = cProfile.Profile()
+        # pr.enable()
         if self.should_terminate:
             return
         # Slowdown to give more rendering time to the unreal engine (should not be necessary in normal mode)
@@ -203,6 +211,10 @@ class UnrealRosClient:
         client.request("vset /camera/{0:d}/rotation {1:f} {2:f} {3:f}".format(self.camera_id, *orientation))
         # Trying to make sure it uses the fusion camera rotation
         # client.request("vset /camera/{0:d}/rotation {1:f} {2:f} {3:f}".format(1, *orientation))
+
+        # Profiling
+        # pr.disable()
+        # pr.print_stats(sort='time')
 
     def generate_traj_callback(self, _):
         ''' Produce poses from unreal in-game controlled camera movement to be recorded and used as human defined planning'''
@@ -257,10 +269,15 @@ class UnrealRosClient:
         # res_color_orig = client.request('vget /camera/%d/lit png' % self.camera_id)
         # res_depth_orig = client.request('vget /camera/%d/depth npy' % self.camera_id)
         # quick fix for New Maze environment, camera 1 is a fusion camera
-        res_color = client.request('vget /camera/1/lit png')
-        res_depth = client.request('vget /camera/1/depth npy')
+        now = rospy.Time.now()
+        res_color = client.request('vget /camera/1/lit png') # Takes ~0.25s
+        rospy.loginfo("Time to get color image: %f", (rospy.Time.now() - now).to_sec())
+        now = rospy.Time.now()
+        res_depth = client.request('vget /camera/1/depth npy') # Takes ~0.3s
+        rospy.loginfo("Time to get depth image: %f", (rospy.Time.now() - now).to_sec())
         #res_depth = np.fromstring(res_depth[80:], dtype=np.float32, count=-1, sep='')
         # Remove this header: "\x93NUMPY\x01\x00F\x00{'descr': '<f4', 'fortran_order': False, 'shape': (480, 640), }      \n"
+        now = rospy.Time.now()
         res_depth = np.fromstring(res_depth[80:], dtype=np.float32, count=-1, sep='')
         # res_depth 
         # Publish data
@@ -276,6 +293,7 @@ class UnrealRosClient:
         
 
         self.pub.publish(msg)
+        rospy.loginfo("Time to publish image/depth: %f s", (rospy.Time.now() - now).to_sec())
 
     def publish_tf_data(self, odom_msg):
         pos = odom_msg.pose.pose.position
@@ -356,8 +374,14 @@ class UnrealRosClient:
         rospy.logwarn("MAV collision detected!")
         self.collision_pub.publish(String("MAV collision detected!"))
 
-
-if __name__ == '__main__':
+def main():
     rospy.init_node('unreal_ros_client', anonymous=False)  # Currently only 1 Client at a time is supported by unrealcv
     uc = UnrealRosClient()
     rospy.spin()
+
+if __name__ == '__main__':
+    # rospy.init_node('unreal_ros_client', anonymous=False)  # Currently only 1 Client at a time is supported by unrealcv
+    # uc = UnrealRosClient()
+    # rospy.spin()
+    # cProfile.run('main()')
+    main()
